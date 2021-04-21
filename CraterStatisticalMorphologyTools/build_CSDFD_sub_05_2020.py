@@ -146,8 +146,9 @@ def PDP_proba_1(Diam, depth, areas, Diam_bin, depth_bin,
 #The depth and diameter grids need to be given
 #FASTER VERSION AS OF NOW
 #Robbins 2017 : PDP
-def PDP_proba_2(Diam, depth, Area, Diam_bin, depth_bin,D_err_f=0.1, d_err=6):
-    count=np.histogram2d(Diam, depth, bins=[Diam_bin_lim, depth_bin_lim])[0] 
+def PDP_proba_2(Diam, depth, Area, Diam_bin_lim, depth_bin_lim, D_err_f=0.1, d_err=6):
+    count = np.histogram2d(Diam, depth, bins = [Diam_bin_lim, depth_bin_lim])[0] 
+
     proba_CSDFD = convolute_proba(count/Area, Diam_bin_lim, depth_bin_lim)
     
     return proba_CSDFD
@@ -168,7 +169,7 @@ import scipy.stats as st
 import matplotlib.pyplot as plt
 
 
-def kernel_estimator(Diam_crat, depth_crat, Diam_bin_lim, depth_bin_lim, mode='log', mirroring=True):
+def kernel_estimator(Diam_crat, depth_crat, Diam_bin_lim, depth_bin_lim, mode='log', mirroring=False):
     
     if mode=='linear':
         Diam_bin_lim_temp= Diam_bin_lim
@@ -251,7 +252,7 @@ import awkde_modified as test
 
 
 
-def adaptative_kernel_estimator(Diam_crat, depth_crat, Diam_bin_lim, depth_bin_lim, alpha_kde, mirroring=True):
+def adaptative_kernel_estimator(Diam_crat, depth_crat, Diam_bin_lim, depth_bin_lim, alpha_kde, mirroring=False):
     # depth_bin_lim_temp=np.log2(depth_bin_lim)
     # depth_crat_temp   =np.log2(depth_crat)
     depth_bin_lim_temp=depth_bin_lim

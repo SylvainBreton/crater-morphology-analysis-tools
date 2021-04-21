@@ -104,7 +104,7 @@ class depth_measurement_GUI(QDialog): #
         self.DEM_file= QFileDialog.getOpenFileName(self,
                      "Ouvrir un fichier",
                      "C:\\",
-                     "tif (*.tif)")[0]
+                     "tif (*.tif);;img (*.img);;jp2 (*.jp2)")[0]
 
         self.textboxLoadDEM_.setText(self.DEM_file)
         
@@ -203,6 +203,7 @@ class depth_measurement_GUI(QDialog): #
         
         for index in range(0,featureCount):         
             crater = crat_layer.GetFeature(index)
+            
             crat_geom = crater.GetGeometryRef()
             env=crat_geom.GetEnvelope()
             

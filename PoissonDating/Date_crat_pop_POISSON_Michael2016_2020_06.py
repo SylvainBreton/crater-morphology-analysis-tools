@@ -24,10 +24,11 @@ from osgeo import ogr
 
 
 #####Param
-range_Diam=[1.2,100]
+range_Diam=[0.6,10]
 area = 29809.836744
-folder= '/media/breton/Gros_DD/ELR/ELR shapefiles/mare_craters/'
-file = 'WAC_craters_mare.shp'
+#folder= '/media/breton/Gros_DD/ELR/ELR shapefiles/mare_craters/'
+folder= '/home/breton/Bureau/Recherche/Data/Mars_Volcanism/Tharsis_HRSC/H1937_0000/'
+file = 'H1937_0000_craters.shp'
 
 file_path=folder + file
 
