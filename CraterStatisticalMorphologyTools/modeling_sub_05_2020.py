@@ -297,7 +297,7 @@ def build_density_mat(Diam_bin, depth_bin, obl_vec, obl_dep=[0,0]):
 #       set to 0 to model all the population
 #discr determine how the craters are discretized 'poisson' or 'not_poisson'
 #####################
-def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0.,0.], discr='poisson'):
+def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0.,0.], discr='poisson', backwasting = False):
     diam_dep=obl_dep[0]
     depth_dep=obl_dep[1]
     
@@ -348,7 +348,7 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
         
     #each diameter step get its own area such as the number of crater in this bin 
     #dont exceed nb_crat_opti
-    if nb_crat_opti!=0:
+    if nb_crat_opti != 0:
         for i_bin in range(0,nb_bin): 
             if area_tot==-1:
                 ob_bin=np.cumsum(obliteration_vec)*Diam_vec[i_bin]**diam_dep
@@ -366,8 +366,199 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
     #depth_crat that contain the depth of the craters
     #and area_crat that contains the area associated with the crater
     diam_crat=np.zeros(0)
+    diam0_crat=np.zeros(0)
     depth_crat=np.zeros(0)
     area_crat =np.zeros(0)
+
+    #time loop
+    for i_time in range(0,Nb_step):
+        Real_time=i_time*dt
+        Real_age = Real_tot_time - Real_time
+        
+            
+        ######################## Poisson law version ######################
+        if discr == 'poisson':
+            new_crats = get_craters_poisson(Diam, depth, Real_age, Area, prod_func, depth_func)
+                
+        ###################### Non Poisson law version #####################
+        if discr == 'nonpoisson':
+            new_crats = get_craters_poisson(Diam, depth, Real_age, Area, prod_func, depth_func)
+            
+        diam_crat = np.concatenate((diam_crat, new_crats[0]))
+        diam0_crat = np.concatenate((diam0_crat, new_crats[0]))
+        depth_crat = np.concatenate((depth_crat, new_crats[1]))
+        area_crat = np.concatenate((area_crat, new_crats[2]))
+                
+        
+        #Now we erode craters
+        crat_to_remove=np.zeros(0)
+        for i_crat in range(len(depth_crat)):
+            #each crater is eroded
+            obliteration= (obliteration_vec[i_time] * 
+                           (depth_crat[i_crat])**depth_dep *
+                           (diam_crat[i_crat]*1000)**diam_dep)
+            depth_crat[i_crat]=depth_crat[i_crat]-obliteration
+            
+            
+            if backwasting:
+                # Backwasting
+                # t_scaled = age_crat[i_crat] * kappa/kappa0 * (D_0/diam0_crat[i_crat])**2 
+                # diam_crat[i_crat] = diam0_crat[i_crat] + coefBackWash1 * t_scaled**2 + coefBackWash2 * t_scaled
+                
+                # Ivanov (2018)
+                depth0 = depth_func(diam0_crat[i_crat])
+                diam_crat[i_crat] = 1 / (1 - 5/4 * (1 - depth_crat[i_crat] / depth0))
+                
+                
+            #craters with a depth lower than 0 are supressed
+            depth_dec_lim = 0
+            
+            if depth_dep != 0:
+                depthDetectionLimit = 10 * diam0_crat[i_crat]
+
+
+            if depth_crat[i_crat]<depth_dec_lim:
+                crat_to_remove=np.append(crat_to_remove,i_crat)
+               
+        depth_crat = np.delete(depth_crat, crat_to_remove)
+        diam_crat = np.delete(diam_crat, crat_to_remove)
+        area_crat = np.delete(area_crat, crat_to_remove)
+        
+    return diam_crat,depth_crat,area_crat
+
+
+def get_craters_poisson(Diam, depth, Real_age, Area, prod_func, depth_func):
+    new_diams = np.array([])
+    new_depths = np.array([])
+    new_areas = np.array([])
+    
+    nb_bin = np.size(Diam)
+    
+    #at each time step craters are added in each diameter step
+    for i_bin in range(0,nb_bin):
+        i_Diam_min = Diam[i_bin]
+        i_Diam_max = Diam[i_bin + 1]
+        i_Diam = Diam_vec[i_bin]
+
+        rate = Area[i_bin] * (  (prod_func(i_Diam_min, Real_age+dt)   - prod_func(i_Diam_max, Real_age+dt))-
+                                (prod_func(i_Diam_min, Real_age)- prod_func(i_Diam_max, Real_age)))
+        
+        nb_crat_to_add = np.random.poisson(rate,1)[0]            
+        for i_add in range(0,nb_crat_to_add):
+            #The diam of the crater is chosen randomly into the bin it has been added
+            new_diam = 10**np.random.uniform(log(i_Diam_min,10),log(i_Diam_max,10))
+            
+            new_diams = np.append(new_diams, new_diam)
+            new_areas = np.append(new_areas, Area[i_bin])
+            
+            #We also associate a depth with this crater
+            #We use one of the scaling law of the litterature
+            new_depth = depth_func(new_diam)
+            new_depths = np.append(new_depths, new_depth)
+            
+    return [new_diams, new_depths, new_areas]
+
+def get_craters_distri(Diam, depth, Real_age, Area, prod_func, depth_func):
+    new_diams = np.array([])
+    new_depths = np.array([])
+    new_areas = np.array([])
+
+    nb_bin = np.size(Diam)
+    
+    #built the SFD of craters occuring during this time
+    PF = np.zeros(nb_bin)
+    for i_bin in range(0, nb_bin):
+        i_Diam_min=Diam[i_bin]
+        i_Diam_max=Diam[i_bin + 1]
+        
+        PF[i_bin]= prod_func(i_Diam_min,Real_age)- prod_func(i_Diam_max , Real_age)
+        
+    
+    nb_tot_crat_to_add = int((prod_func(Diam_min,Real_age+dt)-prod_func(Diam_min,Real_age))*Area[0])
+    #randomly pick nb_tot_crat_to_add craters using the PF as a probability density
+    linear_i_sample=np.random.choice(np.arange(0,nb_bin),nb_tot_crat_to_add,p=PF/np.sum(PF))
+    for i_bin in linear_i_sample:       
+        i_Diam_min=Diam[i_bin]
+        i_Diam_max=Diam[i_bin + 1]
+        
+        
+        #The diam of the crater is chosen randomly into the bin it has been added
+        new_diam=10**uniform(log(i_Diam_min,10),log(i_Diam_max,10))
+        #new_diam=uniform(i_Diam_min,i_Diam_max)
+        new_diams = np.append(new_diams, new_diam)
+        new_areas = np.append(new_areas, Area[0])
+
+        #We also associate a depth with this crater
+        #We use one of the scaling law of the litterature
+        new_depth = depth_func(new_diam)
+        new_depths = np.append(new_depths, new_depth)  
+            
+    return [new_diams, new_depths, new_areas]
+
+
+###########################################################################
+#Compute a theoric CSDFD 
+#crater are only degradated by diffusion
+#apply backwasting of craters 
+#####################
+def model_crat_diffusion(area_tot, Diam_min, Diam_max, age, discr = 'poisson', backwasting = True):
+    
+    
+    ##### Params
+    kappa = 7
+    kappa0 = 0.7
+    D_0 = 0.3
+    coefBackWash1 = 0.499
+    coefBackWash2 = 0.555
+    rho = 1
+    
+    
+    #Production function
+    prod_func = Ivanov
+    prod_der_func = der_Ivanov
+    #scaling law depth=f(diam)
+    depth_func= Garvin
+    
+    
+    ##The ob_array should start with the older ages
+    if age[-1]>age[0]:
+        age=age[::-1]
+     
+    age=np.array(age)
+    
+    #create more detailled age and obliteration vec with a small time step
+    dt=0.01
+    Nb_step = int(age[0]/dt+1)
+    Real_tot_time = (Nb_step-1) * dt
+    Age_vec =  np.zeros(Nb_step)       
+    for i_time in range(0,Nb_step):
+        Real_time=i_time*dt
+        Real_age = Real_tot_time - Real_time
+        Age_vec[i_time] = Real_age
+        i_age_modeled=np.max(np.where(age<=Real_age))
+     
+
+    #Diameter discretization
+    nb_bin=500
+    Diam = np.zeros(nb_bin+1)
+    Area = np.zeros(nb_bin)
+    
+    Diam_vec = np.zeros(nb_bin)   
+    for i_bin in range(0,nb_bin+1):
+        Diam[i_bin] = Diam_min * (Diam_max/Diam_min)**(i_bin/nb_bin)
+        if i_bin!=nb_bin: 
+            Diam_vec[i_bin]=Diam_min * (Diam_max/Diam_min)**((i_bin+0.5)/nb_bin)
+        
+            
+
+    #crat is composed of diam_crat that contains the diameter
+    #depth_crat that contain the depth of the craters
+    #and area_crat that contains the area associated with the crater
+    diam_crat = np.zeros(0)
+    diam0_crat = np.zeros(0)
+    age_crat = np.zeros(0)
+    depth_crat = np.zeros(0)
+    area_crat = np.zeros(0)
 
     #time loop
     for i_time in range(0,Nb_step):
@@ -385,10 +576,11 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                 i_Diam_max=Diam[i_bin + 1]
                 i_Diam=Diam_vec[i_bin]
 
-                rate = Area[i_bin] * (  (prod_func(i_Diam_min,Real_age+dt)   - prod_func(i_Diam_max,Real_age+dt))-
+                rate = area_tot * (  (prod_func(i_Diam_min,Real_age+dt)   - prod_func(i_Diam_max,Real_age+dt))-
                                         (prod_func(i_Diam_min,Real_age)- prod_func(i_Diam_max,Real_age)))
                 
-                nb_crat_to_add = np.random.poisson(rate,1)[0]            
+                nb_crat_to_add = np.random.poisson(rate,1)[0]       
+                
                 for i_add in range(0,nb_crat_to_add):
                     #The diam of the crater is chosen randomly into the bin it has been added
                     new_diam=10**np.random.uniform(log(i_Diam_min,10),log(i_Diam_max,10))
@@ -401,6 +593,10 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                     #We use one of the scaling law of the litterature
                     new_depth=depth_func(new_diam)
                     depth_crat=np.append(depth_crat,new_depth)
+                    
+                    
+                    diam0_crat = np.append(diam_crat, new_diam)
+                    age_crat=np.append(age_crat, 0.)
 
                     
              
@@ -436,38 +632,77 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                 new_depth=depth_func(new_diam)
                 depth_crat=np.append(depth_crat,new_depth)       
                 
+                diam0_crat = np.append(diam_crat,new_diam)
+                age_crat = np.append(0)
+                
+        
         
         #Now we erode craters
         crat_to_remove=np.zeros(0)
         for i_crat in range(len(depth_crat)):
-            #each crater is eroded
-            obliteration= (obliteration_vec[i_time] * 
-                           (depth_crat[i_crat])**depth_dep *
-                           (diam_crat[i_crat]*1000)**diam_dep)
-            depth_crat[i_crat]=depth_crat[i_crat]-obliteration
             
-            #craters with a depth lower than 0 are supressed
-            depth_dec_lim=0
-            if depth_dep!=0:
-                depth_dec_lim=1
             
-            if depth_crat[i_crat]<depth_dec_lim:
-                crat_to_remove=np.append(crat_to_remove,i_crat)
-               
-        depth_crat = np.delete(depth_crat, crat_to_remove)
-        diam_crat = np.delete(diam_crat, crat_to_remove)
-        area_crat = np.delete(area_crat, crat_to_remove)
+            # Buggiolachi 2020
+            # depth depletion
+            obliteration = - kappa / rho * 16 * depth_crat[i_crat] / diam_crat[i_crat]
+            
+            depth_crat[i_crat] = depth_crat[i_crat]-obliteration
+            
+            
+            if backwasting:
+                # Backwasting
+                # t_scaled = age_crat[i_crat] * kappa/kappa0 * (D_0/diam0_crat[i_crat])**2 
+                # diam_crat[i_crat] = diam0_crat[i_crat] + coefBackWash1 * t_scaled**2 + coefBackWash2 * t_scaled
+                
+                # Ivanov (2018)
+                depth0 = depth_func(diam0_crat[i_crat])
+                diam_crat[i_crat] = 1 / (1 - 5/4 * (1 - depth_crat[i_crat] / depth0))
+            
+            
+            #craters with a depth/Diam lower than 1% are supressed
+            depthDetectionLimit = 10 * diam0_crat[i_crat]
+            
+            if depth_crat[i_crat]<depthDetectionLimit:
+                crat_to_remove = np.append(crat_to_remove, i_crat)
+           
+        if np.size(crat_to_remove) >0:
+            depth_crat = np.delete(depth_crat, crat_to_remove)
+            diam_crat = np.delete(diam_crat, crat_to_remove)
+            area_crat = np.delete(area_crat, crat_to_remove)
+            age_crat = np.delete(age_crat, crat_to_remove)
+            diam0_crat = np.delete(diam0_crat, crat_to_remove)
+        
+        age_crat = age_crat + dt
         
     return diam_crat,depth_crat,area_crat
 
 
 
 
-
-
-
-
-
+def applyDiffusion(Diam, depth, kappa, dt):
+    # assuming a flux following a difusion law with coeficient kappa
+    # and a triangular shaped crater
+    # and conservation of mass
+    
+    # Diam is D
+    # Radius is R = D/2
+    # depth is d
+    # slope is S = d/R
+    
+    # dd/dt = 4/9 * kappa * S/(R**3 - R**2)
+    # dS/dt = 3/2 dd/dt
+    # D(t+1) = (d + dd/dt)/(S + 2/3 * dd/dt)
+    
+    Slope = 2 * depth/Diam
+    
+    deltaDepth = 4/9 * kappa * Slope/((Diam/2)**3 - (Diam/2)**2)
+    
+    newDepth = depth + deltaDepth * dt
+    
+    newDiam = (depth + deltaDepth)/(Slope + 2/3 * deltaDepth)
+    
+    
+    return newDiam, newDepth
 
 
 
