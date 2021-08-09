@@ -15,12 +15,12 @@ Created on Tue May 12 11:34:14 2020
 
 from math import *
 import numpy as np
-from sub_programs import modeling_sub_05_2020 as model_subs
+from crater_morphology_analysis_tools.CraterStatisticalMorphologyTools import modeling_sub as model_subs
 
 
 
 import shapely.geometry as geometry
-from sub_programs import alpha_shape
+from crater_morphology_analysis_tools.CraterStatisticalMorphologyTools import alpha_shape
 
 
 ###############################################################################
