@@ -41,7 +41,9 @@ import numpy as np
 # Ivanov (2001) 
 # Conpute the expected density of crater > diameter for a given age
 def Ivanov(diameter, age):
-    if age <= 0:
+    if age < 0 or age > 5:
+        raise Exception('age should be positive and less than 5 Gy')
+    elif age == 0:
         return 0
     else:
         coef_pf = [-3.383677, -3.197453, 1.256814, 7.915374 * 10 ** (-1),
@@ -51,11 +53,18 @@ def Ivanov(diameter, age):
         coef_chrono = [2.68 * 10 ** (-14), 6.93, 0, 4.13 * 10 ** (-4)]
         time_dep = coef_chrono[0] * (exp(coef_chrono[1] * age) - 1) + coef_chrono[3] * age
         tot = log(time_dep, 10)
-        if diameter > 0:
+        if diameter <= 0:
+            raise Exception('diameter should be positive')
+        else:
             for i_coef in range(1, len(coef_pf)):
                 tot = tot + coef_pf[i_coef] * (log(diameter, 10)) ** i_coef
 
-    return 10 ** tot
+    if tot < -300:
+        return 0.
+    elif tot > 300:
+        raise Exception('Increase the minimum diameter')
+    else:
+        return 10 ** tot
 
 
 ###########################################################################
@@ -373,29 +382,52 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                             (diam_crat[i_crat] * 1000) ** diam_dep)
             depth_crat[i_crat] = depth_crat[i_crat] - obliteration
 
+
+            # craters with a depth lower than 0 are suppressed
+            depth_dec_lim = 10 * diam0_crat[i_crat]
+            if depth_crat[i_crat] < depth_dec_lim:
+                crat_to_remove = np.append(crat_to_remove, i_crat)
+
+
             if backwasting:
                 # Backwasting
                 # t_scaled = age_crat[i_crat] * kappa/kappa0 * (D_0/diam0_crat[i_crat])**2 
                 # diam_crat[i_crat] = diam0_crat[i_crat] + coefBackWash1 * t_scaled**2 + coefBackWash2 * t_scaled
 
-                # Ivanov (2018)
+                # Melosh (1989) does not work
+                # depth0 = depth_func(diam0_crat[i_crat])
+                # diam_crat[i_crat] = diam0_crat[i_crat] * (1 / (1 - 5 / 4 * (1 - depth_crat[i_crat] / depth0))**(1/3))
+
+                # Basilevsky (2015)
                 depth0 = depth_func(diam0_crat[i_crat])
-                diam_crat[i_crat] = 1 / (1 - 5 / 4 * (1 - depth_crat[i_crat] / depth0))
 
-            # craters with a depth lower than 0 are suppressed
-            depth_dec_lim = 0
+                test = diam0_crat[i_crat] * (
+                    (depth0 / 1000 / diam0_crat[i_crat] - 4/3 * (depth0 / 1000 / diam0_crat[i_crat]) ** 3) /
+                    (depth_crat[i_crat] / 1000 / diam_crat[i_crat] - 4/3 * (depth_crat[i_crat] / 1000/diam_crat[i_crat]) ** 3)
+                ) ** (1/3)
 
-            if depth_dep != 0:
-                depth_dec_lim = 10 * diam0_crat[i_crat]
+                if (diam_crat[i_crat] == diam_crat[i_crat] and test != test):
+                    print('********')
+                    print(diam0_crat[i_crat])
+                    print(diam_crat[i_crat])
+                    print(depth0)
+                    print(depth_crat[i_crat])
 
-            if depth_crat[i_crat] < depth_dec_lim:
-                crat_to_remove = np.append(crat_to_remove, i_crat)
+
+                diam_crat[i_crat] = diam0_crat[i_crat] * (
+                    (depth0 / 1000 / diam0_crat[i_crat] - 4/3 * (depth0 / 1000 / diam0_crat[i_crat]) ** 3) /
+                    (depth_crat[i_crat] / 1000 / diam_crat[i_crat] - 4/3 * (depth_crat[i_crat] / 1000/diam_crat[i_crat]) ** 3)
+                ) ** (1/3)
+
+
+
 
 
 
         if np.size(crat_to_remove) > 0:
             depth_crat = np.delete(depth_crat, crat_to_remove)
             diam_crat = np.delete(diam_crat, crat_to_remove)
+            diam0_crat = np.delete(diam0_crat, crat_to_remove)
             area_crat = np.delete(area_crat, crat_to_remove)
 
     return diam_crat, depth_crat, area_crat
@@ -427,7 +459,7 @@ def get_craters_poisson(diameter_bin, Real_age, dt, Area, prod_func, depth_func)
             new_areas = np.append(new_areas, Area[i_bin])
 
             # We also associate a depth with this crater
-            # We use one of the scaling law of the litterature
+            # We use one of the scaling law of the literature
             new_depth = depth_func(new_diam)
             new_depths = np.append(new_depths, new_depth)
 
