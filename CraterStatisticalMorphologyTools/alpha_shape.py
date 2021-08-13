@@ -55,17 +55,19 @@ def alpha_shape(points, alpha):
         a = math.sqrt((pa[0]-pb[0])**2 + (pa[1]-pb[1])**2)
         b = math.sqrt((pb[0]-pc[0])**2 + (pb[1]-pc[1])**2)
         c = math.sqrt((pc[0]-pa[0])**2 + (pc[1]-pa[1])**2)
-        # Semiperimeter of triangle
-        s = (a + b + c)/2.0
+
         # Area of triangle by Heron's formula
-        area = math.sqrt(s*(s-a)*(s-b)*(s-c))
-        circum_r = a*b*c/(4.0*area)
-        # Here's the radius filter.
-        #print circum_r
-        if circum_r < 1.0/alpha:
-            add_edge(edges, edge_points, coords, ia, ib)
-            add_edge(edges, edge_points, coords, ib, ic)
-            add_edge(edges, edge_points, coords, ic, ia)
+        area = math.sqrt((a + b + c)*(b+c)*(a+c)*(a+b))
+
+        if area != 0:
+            circum_r = a*b*c/(4.0*area)
+            # Here's the radius filter.
+            #print circum_r
+            if circum_r < 1.0/alpha:
+                add_edge(edges, edge_points, coords, ia, ib)
+                add_edge(edges, edge_points, coords, ib, ic)
+                add_edge(edges, edge_points, coords, ic, ia)
+
     m = geometry.MultiLineString(edge_points)
     triangles = list(polygonize(m))
     return cascaded_union(triangles), edge_points

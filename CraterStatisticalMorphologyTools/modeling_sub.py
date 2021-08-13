@@ -316,7 +316,9 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
         Real_time = i_time * dt
         Real_age = Real_tot_time - Real_time
         Age_vec[i_time] = Real_age
-        i_age_modeled = np.max(np.where(age <= Real_age))
+        i_age_modeled = np.max(np.where(age >= Real_age))
+
+
         obliteration_vec[i_time] = obliteration[i_age_modeled] * dt
 
     # Diameter discretization
@@ -382,9 +384,10 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                             (diam_crat[i_crat] * 1000) ** diam_dep)
             depth_crat[i_crat] = depth_crat[i_crat] - obliteration
 
+            depth0 = depth_func(diam0_crat[i_crat])
 
             # craters with a depth lower than 0 are suppressed
-            depth_dec_lim = 10 * diam0_crat[i_crat]
+            depth_dec_lim = 0.01 * depth0
             if depth_crat[i_crat] < depth_dec_lim:
                 crat_to_remove = np.append(crat_to_remove, i_crat)
 
@@ -394,26 +397,10 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
                 # t_scaled = age_crat[i_crat] * kappa/kappa0 * (D_0/diam0_crat[i_crat])**2 
                 # diam_crat[i_crat] = diam0_crat[i_crat] + coefBackWash1 * t_scaled**2 + coefBackWash2 * t_scaled
 
-                # Melosh (1989) does not work
-                # depth0 = depth_func(diam0_crat[i_crat])
+                # Melosh (1989)
                 # diam_crat[i_crat] = diam0_crat[i_crat] * (1 / (1 - 5 / 4 * (1 - depth_crat[i_crat] / depth0))**(1/3))
 
                 # Basilevsky (2015)
-                depth0 = depth_func(diam0_crat[i_crat])
-
-                test = diam0_crat[i_crat] * (
-                    (depth0 / 1000 / diam0_crat[i_crat] - 4/3 * (depth0 / 1000 / diam0_crat[i_crat]) ** 3) /
-                    (depth_crat[i_crat] / 1000 / diam_crat[i_crat] - 4/3 * (depth_crat[i_crat] / 1000/diam_crat[i_crat]) ** 3)
-                ) ** (1/3)
-
-                if (diam_crat[i_crat] == diam_crat[i_crat] and test != test):
-                    print('********')
-                    print(diam0_crat[i_crat])
-                    print(diam_crat[i_crat])
-                    print(depth0)
-                    print(depth_crat[i_crat])
-
-
                 diam_crat[i_crat] = diam0_crat[i_crat] * (
                     (depth0 / 1000 / diam0_crat[i_crat] - 4/3 * (depth0 / 1000 / diam0_crat[i_crat]) ** 3) /
                     (depth_crat[i_crat] / 1000 / diam_crat[i_crat] - 4/3 * (depth_crat[i_crat] / 1000/diam_crat[i_crat]) ** 3)
