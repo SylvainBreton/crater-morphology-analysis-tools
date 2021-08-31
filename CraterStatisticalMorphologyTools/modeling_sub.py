@@ -40,6 +40,7 @@ import numpy as np
 ###########################################################################
 # Ivanov (2001) 
 # Conpute the expected density of crater > diameter for a given age
+# result in km-3
 def Ivanov(diameter, age):
     if age < 0 or age > 5:
         raise Exception('age should be positive and less than 5 Gy')
@@ -117,11 +118,14 @@ def der_Ivanov(diameter, age):
 # Diam in km
 # depth in m
 #####################
-def Garvin(Diam):
+def Garvin(Diam, depth_variability = 0):
     if Diam < 7:
         depth = 0.21 * (Diam) ** 0.81 * 1000
     else:
         depth = 0.36 * (Diam) ** 0.49 * 1000
+
+    if depth_variability != 0:
+        return np.random.normal(depth, depth_variability * depth)
 
     return depth
 
@@ -285,7 +289,7 @@ def build_density_mat(Diam_bin, depth_bin, obl_vec, obl_dep=[0, 0]):
 # discr determine how the craters are discretized 'poisson' or 'not_poisson'
 #####################
 def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0., 0.], discr='poisson',
-               backwasting=False):
+               backwasting=False, depth_variability = 0):
     diam_dep = obl_dep[0]
     depth_dep = obl_dep[1]
 
@@ -363,11 +367,11 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
 
         ######################## Poisson law version ######################
         if discr == 'poisson':
-            new_crats = get_craters_poisson(diameterBin, Real_age, dt, Area, prod_func, depth_func)
+            new_crats = get_craters_poisson(diameterBin, Real_age, dt, Area, prod_func, depth_func, depth_variability)
 
         ###################### Non Poisson law version #####################
         if discr == 'nonpoisson':
-            new_crats = get_craters_from_distribution(diameterBin, Diam_min, Real_age, dt, Area, prod_func, depth_func)
+            new_crats = get_craters_from_distribution(diameterBin, Diam_min, Real_age, dt, Area, prod_func, depth_func, depth_variability)
 
         diam_crat = np.concatenate((diam_crat, new_crats[0]))
         diam0_crat = np.concatenate((diam0_crat, new_crats[0]))
@@ -387,7 +391,8 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
             depth0 = depth_func(diam0_crat[i_crat])
 
             # craters with a depth lower than 0 are suppressed
-            depth_dec_lim = 0.01 * depth0
+            # depth_dec_lim = 0.01 * depth0
+            depth_dec_lim = 0
             if depth_crat[i_crat] < depth_dec_lim:
                 crat_to_remove = np.append(crat_to_remove, i_crat)
 
@@ -420,7 +425,7 @@ def model_crat(area_tot, Diam_min, Diam_max, obl_vec, nb_crat_opti=5, obl_dep=[0
     return diam_crat, depth_crat, area_crat
 
 
-def get_craters_poisson(diameter_bin, Real_age, dt, Area, prod_func, depth_func):
+def get_craters_poisson(diameter_bin, Real_age, dt, Area, prod_func, depth_func, depth_variability):
     new_diams = np.array([])
     new_depths = np.array([])
     new_areas = np.array([])
@@ -447,13 +452,13 @@ def get_craters_poisson(diameter_bin, Real_age, dt, Area, prod_func, depth_func)
 
             # We also associate a depth with this crater
             # We use one of the scaling law of the literature
-            new_depth = depth_func(new_diam)
+            new_depth = depth_func(new_diam, depth_variability)
             new_depths = np.append(new_depths, new_depth)
 
     return [new_diams, new_depths, new_areas]
 
 
-def get_craters_from_distribution(diameter_bin, diameter_min, Real_age, dt, Area, prod_func, depth_func):
+def get_craters_from_distribution(diameter_bin, diameter_min, Real_age, dt, Area, prod_func, depth_func, depth_variability):
     new_diams = np.array([])
     new_depths = np.array([])
     new_areas = np.array([])
@@ -485,7 +490,7 @@ def get_craters_from_distribution(diameter_bin, diameter_min, Real_age, dt, Area
 
         # We also associate a depth with this crater
         # We use one of the scaling law of the litterature
-        new_depth = depth_func(new_diam)
+        new_depth = depth_func(new_diam, depth_variability)
         new_depths = np.append(new_depths, new_depth)
 
     return [new_diams, new_depths, new_areas]

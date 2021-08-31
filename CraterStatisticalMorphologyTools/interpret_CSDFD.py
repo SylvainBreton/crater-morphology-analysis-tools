@@ -30,92 +30,90 @@ from crater_morphology_analysis_tools.CraterStatisticalMorphologyTools import al
 ###############################################################################
 ###############################################################################
 
-def obliteration(proba, Diam_bin, depth_bin, mask_proba, t_param=[4.8,15]):
-    nb_bin_diam =np.shape(proba)[0]
-    nb_bin_depth=np.shape(proba)[1]
+def obliteration(proba, Diam_bin, depth_bin, mask_proba, t_param=[4.8, 15]):
+    nb_bin_diam = np.shape(proba)[0]
+    nb_bin_depth = np.shape(proba)[1]
     
-    
-    
-    #create a cumulative density grid in depth
-    Density_grid_cum     = np.zeros(np.shape(proba))
-    for i_Diam in range(0,nb_bin_diam):        
-        Density_grid_cum[i_Diam,:] = np.cumsum(proba[i_Diam,::-1])[::-1]
+    # create a cumulative density grid in depth
+    Density_grid_cum = np.zeros(np.shape(proba))
+    for i_Diam in range(0, nb_bin_diam):
+        Density_grid_cum[i_Diam, :] = np.cumsum(proba[i_Diam, ::-1])[::-1]
         
         
          
     
     
     
-    #   Compute obliteration
-    #Maximum age
+    # Compute obliteration
+    # Maximum age
     t_max=t_param[0]          #in Gy
-    #Number of time steps
-    Nb_time_step=t_param[1]
+    # Number of time steps
+    Nb_time_step = t_param[1]
 
-    
-    
-    #Decrease time step with age (because impact rate is increasing)
-    # age_bin =  (t_max+1) - (t_max+1)**(np.arange(Nb_time_step,-1,-1)/Nb_time_step)
-    # age_bin[0]=0.
+    # Decrease time step with age (because impact rate is increasing)
+    age_bin = (t_max+1) - (t_max+1)**(np.arange(Nb_time_step,-1,-1)/Nb_time_step)
+    age_bin[0] = 0.
     # age_vec=(age_bin[1:]+age_bin[:-1])/2
     
-    step=0.1
-    age_bin=[0.]
-    i_age=0
-    while age_bin[-1]<t_max:
-        age_bin.append(age_bin[-1]+ step*log(1.000001+t_max-age_bin[-1]))
-    
-    age_bin=np.array(age_bin)
-    Nb_time_step=np.size(age_bin)-1
-    
-    
-    Erosion_grid=np.zeros((Nb_time_step,nb_bin_diam))
-    mask_Erosion=np.full((Nb_time_step,nb_bin_diam), 1.)
-    Depth_grid=np.full((Nb_time_step+1,nb_bin_diam),np.nan)
-    mask_Erosion1=np.full((Nb_time_step+1,nb_bin_diam), 1.)
-      
+    # step = 0.1
+    # age_bin = [0.]
+    # i_age = 0
+    # while age_bin[-1] < t_max:
+    #     age_bin.append(age_bin[-1] + step * log(1.000001 + t_max - age_bin[-1]))
+    #
+    # age_bin = np.array(age_bin)
+    # Nb_time_step = np.size(age_bin)-1
+
+    Erosion_grid = np.zeros((Nb_time_step, nb_bin_diam))
+    mask_Erosion = np.full((Nb_time_step, nb_bin_diam), 1.)
+    Depth_grid = np.full((Nb_time_step+1, nb_bin_diam), np.nan)
+    mask_Erosion1 = np.full((Nb_time_step+1, nb_bin_diam), 1.)
     
     for i_Diam in range(0, nb_bin_diam):
         X_inf = Diam_bin[i_Diam]
         X_sup = Diam_bin[i_Diam+1]
-                
-        if Density_grid_cum[i_Diam,0]!=0 and Density_grid_cum[i_Diam,0]==Density_grid_cum[i_Diam,0]:
-            i_depth_low_prev=np.max(np.where(Density_grid_cum[i_Diam,:]==Density_grid_cum[i_Diam,:]))
-            
-            
-            for i_time in range(0,Nb_time_step+1):     
-                #Compute the model density for this age and depth
-                density_theo_age=(model_subs.Ivanov(X_inf,age_bin[i_time])-model_subs.Ivanov(X_sup,age_bin[i_time]))
-                
-                #find where the cumulative depth density is equal to theoritical densities
-                if Density_grid_cum[i_Diam,0]>=density_theo_age and Density_grid_cum[i_Diam,i_depth_low_prev]<=density_theo_age:
-                    i_depth_high=np.max(np.where(density_theo_age<=Density_grid_cum[i_Diam,:]))
-                    i_depth_low=np.min(np.where(density_theo_age>=Density_grid_cum[i_Diam,:]))
-                    
-                    
-                    #Interpolate the depth linearly in the bin
-                    if i_depth_high!=i_depth_low:
-                        Where_in_bin=((Density_grid_cum[i_Diam,i_depth_low]-density_theo_age)/
-                               (Density_grid_cum[i_Diam,i_depth_low]-Density_grid_cum[i_Diam,i_depth_high]))
-                    
-                    #Case where we are exactly on the bin edge
-                    else:
-                        Where_in_bin=0
-                        
 
-                    Depth_grid[i_time, i_Diam]=depth_bin[i_depth_low] - (
-                                                        depth_bin[i_depth_low]-depth_bin[i_depth_high])*Where_in_bin
-                    
-                    if mask_proba[i_Diam, i_depth_low]!=1 and mask_proba[i_Diam, i_depth_high]!=1:
+
+        if Density_grid_cum[i_Diam, 0] != 0 and Density_grid_cum[i_Diam, 0] == Density_grid_cum[i_Diam, 0]:
+            i_depth_low_prev = np.max(np.where(Density_grid_cum[i_Diam, :] == Density_grid_cum[i_Diam, :]))
+
+            for i_time in range(0, Nb_time_step+1):
+                # Compute the model density for this age and depth
+                density_theo_age = (model_subs.Ivanov(X_inf, age_bin[i_time]) - model_subs.Ivanov(X_sup, age_bin[i_time]))
+
+                # find where the cumulative depth density is equal to theoritical densities
+                if Density_grid_cum[i_Diam,0] >= density_theo_age and Density_grid_cum[i_Diam,i_depth_low_prev] <= density_theo_age and density_theo_age > 0:
+                    i_depth_min = np.max(np.where(density_theo_age <= Density_grid_cum[i_Diam, :]))
+
+
+                    # Interpolate the depth linearly in the bin
+                    if density_theo_age != Density_grid_cum[i_Diam, i_depth_min]:
+                        Depth_grid[i_time, i_Diam] = (depth_bin[i_depth_min + 1] + depth_bin[i_depth_min]) / 2 + (
+                            (density_theo_age - Density_grid_cum[i_Diam, i_depth_min]) *
+                            (depth_bin[i_depth_min] - depth_bin[i_depth_min + 1]) /
+                            (Density_grid_cum[i_Diam, i_depth_min] - Density_grid_cum[i_Diam,  i_depth_min + 1])
+                        )
+
+                        # Depth_grid[i_time, i_Diam] = (depth_bin[i_depth_min + 1] + depth_bin[i_depth_min + 2])/2 + (
+                        #     (density_theo_age - Density_grid_cum[i_Diam,  i_depth_min + 1]) *
+                        #      (depth_bin[i_depth_min] - depth_bin[i_depth_min + 1]) /
+                        #      (Density_grid_cum[i_Diam, i_depth_min] - Density_grid_cum[i_Diam,  i_depth_min + 1])
+                        # )
+
+                    # Case where we are exactly on the bin edge
+                    else:
+                        Depth_grid[i_time, i_Diam] = (depth_bin[i_depth_min  +1] + depth_bin[ i_depth_min])/2
+
+                    if mask_proba[i_Diam, i_depth_min  +1] != 1 and mask_proba[i_Diam, i_depth_min]!=1:
                         mask_Erosion1[i_time, i_Diam] = np.nan
 
-    for i_time in range(0,Nb_time_step):
+    for i_time in range(0, Nb_time_step):
         for i_Diam in range(0, nb_bin_diam):            
-            Erosion_grid[i_time, i_Diam]=(Depth_grid[i_time, i_Diam]-Depth_grid[i_time+1, i_Diam])/(
-                                                           age_bin[i_time+1]- age_bin[i_time])
+            Erosion_grid[i_time, i_Diam] = (Depth_grid[i_time, i_Diam] - Depth_grid[i_time+1, i_Diam])/(
+                                                           age_bin[i_time+1] - age_bin[i_time])
             
-            if mask_Erosion1[i_time, i_Diam]!=1 and mask_Erosion1[i_time+1, i_Diam]!=1:
-                mask_Erosion[i_time, i_Diam]=np.nan
+            if mask_Erosion1[i_time, i_Diam] != 1 and mask_Erosion1[i_time+1, i_Diam] != 1:
+                mask_Erosion[i_time, i_Diam] = np.nan
 
 
                 
@@ -155,14 +153,14 @@ def create_mask(methods, proba, param_cumuN, param_sqrtcumuN, param_alphaShp, pa
         Area=param_sqrtcumuN[0]
         lim=param_sqrtcumuN[1]
         
-        cumu1=np.full(np.shape(proba),np.nan)
-        cumu2=np.full(np.shape(proba),np.nan)
+        cumu1=np.full(np.shape(proba), np.nan)
+        cumu2=np.full(np.shape(proba), np.nan)
             
         for i in range(0, np.shape(proba)[0]):
-            cumu2[i,:]=np.cumsum(proba[i,:])
-            cumu1[i,::-1]=np.cumsum(proba[i,::-1])
+            cumu2[i,:] = np.cumsum(proba[i,:])
+            cumu1[i,::-1] = np.cumsum(proba[i,::-1])
             
-        # mask_matrix[np.where(np.sqrt(cumu2*Area)<lim)] = 1
+        mask_matrix[np.where(np.sqrt(cumu2*Area)<lim)] = 1
         mask_matrix[np.where(np.sqrt(cumu1*Area)<lim)] = 1
     
     

@@ -153,8 +153,13 @@ def PDP_proba_2(Diam, depth, Area, Diam_bin_lim, depth_bin_lim, D_err_f=0.1, d_e
     return proba_CSDFD
 
 
+# this function build an 2D histogram
+def build_histogram(Diam, depth, Area, Diam_bin_lim, depth_bin_lim):
+    count = np.histogram2d(Diam, depth, bins = [Diam_bin_lim, depth_bin_lim])
 
+    proba_CSDFD = count[0] / Area
 
+    return proba_CSDFD
 
 
 
