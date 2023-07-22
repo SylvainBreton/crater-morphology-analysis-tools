@@ -20,11 +20,10 @@ import os
 from osgeo import ogr
 
 # Param
-range_Diam = [0.6, 10]
-area = 29809.836744
-# folder= '/media/breton/Gros_DD/ELR/ELR shapefiles/mare_craters/'
-folder = '/home/breton/Bureau/Recherche/Data/Mars_Volcanism/Tharsis_HRSC/H1937_0000/'
-file = 'H1937_0000_craters.shp'
+range_Diam = [0.6, 15]
+area = 41286918825.50000000000
+folder = '/home/user/Bureau/Recherche/ELM/dating/'
+file = 'CRATER_Hercules2.shp'
 
 file_path = folder + file
 
@@ -61,8 +60,8 @@ for i in range(1, crat_layer.GetFeature(0).GetFieldCount()):
     field = crat_layer.GetFeature(0).GetDefnRef().GetFieldDefn(i).GetName()
 
 # Fill with appropriate name
-diam_field = 'DIAM_KM'
-area_field = 'area'
+diam_field = 'diam_km'
+area_field = 'area_sqkm'
 
 Diam_crat = np.zeros(featureCount)
 crat_areas = np.zeros(featureCount)
@@ -71,7 +70,6 @@ for index in range(0, featureCount):
 
     Diam_crat[index] = crater.GetField(diam_field)
     crat_areas[index] = crater.GetField(area_field)
-
 
 ################################################################################
 ################################################################################
@@ -112,32 +110,33 @@ def compute_isochron(Diam_bin, age):
 
 
 
-def Dating_Poisson(Diam_crat, crat_areas, range_Diam, crat_areas, Coef_PF, Coef_chrono):
+def Dating_Poisson(Diam_crat, range_Diam, area, Coef_PF, Coef_chrono):
     Diam_crat = Diam_crat[np.where((Diam_crat > range_Diam[0]) & (Diam_crat < range_Diam[1]))]
 
     dt = 0.001
     # We test different ages from 0 to 5 Gy
     age_tested_vec = np.arange(dt, 5, dt)
 
-    Xi_age_vec = np.zeros(len(age_tested_vec))
+    proba_age_vec = np.zeros(len(age_tested_vec))
 
-    # Build diameter grid
-    Nb_bin_Diam = 4000
-    X_min = np.log10(0.68 * np.min(Diam_crat))
-    X_max = np.log10(1.32 * np.max(Diam_crat))
-    X_bin_size = (X_max - X_min) / (Nb_bin_Diam)
-    i_Diam = X_min + np.arange(0, Nb_bin_Diam + 1) * X_bin_size
-    Diam_bin = 10 ** i_Diam
+    PF_Diam_min = np.sum(Coef_PF[1:] * np.log10(range_Diam[0]) ** np.arange(1, len(Coef_PF)))
+    PF_Diam_max = np.sum(Coef_PF[1:] * np.log10(range_Diam[1]) ** np.arange(1, len(Coef_PF)))
 
+    chrono_vec = (Coef_chrono[0] * (np.exp(Coef_chrono[1] * age_tested_vec) - 1)
+                  + Coef_chrono[3] * age_tested_vec)
 
-    CSFD = fast_CSFD(Diam_crat, Diam_bin, crat_areas, D_err_f=0.1)
+    # compute the probability of each age Michael 2016
+    proba_log = (-area * chrono_vec * (10 ** PF_Diam_min - 10 ** PF_Diam_max) +
+                 np.log(chrono_vec) * len(Diam_crat))
 
-    for i_age in range(0, len(age_tested_vec)):
-        isochron = compute_isochron(Diam_bin, age_tested_vec[i_age])
+    # python can't handle numbers above exp(700) and below exp(-700)
+    # so we remoove the lowest values
+    max_proba_log = np.max(proba_log)
+    proba_log = proba_log + 700 - max_proba_log
+    proba_age_vec[np.where(proba_log > -700)] = (np.exp(proba_log[np.where(proba_log > -700)])
+                                                 / (np.sum(np.exp(proba_log[np.where(proba_log > -700)])) * dt))
 
-        Xi_age_vec[i_age] = (CSFD - isochron) ** 2
-
-    return age_tested_vec, Xi_age_vec
+    return age_tested_vec, proba_age_vec
 
 
 # Compute the probability of ages from 0 to 5 Gy

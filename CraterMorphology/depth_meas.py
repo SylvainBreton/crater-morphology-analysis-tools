@@ -205,6 +205,9 @@ class depth_measurement_GUI(QDialog): #
             crater = crat_layer.GetFeature(index)
             
             crat_geom = crater.GetGeometryRef()
+
+            print(crat_geom)
+
             env=crat_geom.GetEnvelope()
             
             
@@ -234,7 +237,8 @@ class depth_measurement_GUI(QDialog): #
             new_geot_lat  = nb_px_lat_init  * geotransform[5]/ nb_px_lat
             
             
-            NaN_value=DEM_band.GetNoDataValue()
+            NaN_value = DEM_band.GetNoDataValue()
+
             #Open the raster on a square  around the crater
             #Read the raster around this crater
             data = DEM_band.ReadAsArray(index_long_low, index_lat_low,

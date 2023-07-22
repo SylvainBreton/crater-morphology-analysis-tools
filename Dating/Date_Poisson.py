@@ -20,11 +20,11 @@ import os
 from osgeo import ogr
 
 # Param
-range_Diam = [0.6, 10]
-area = 29809.836744
-# folder= '/media/breton/Gros_DD/ELR/ELR shapefiles/mare_craters/'
-folder = '/home/breton/Bureau/Recherche/Data/Mars_Volcanism/Tharsis_HRSC/H1937_0000/'
-file = 'H1937_0000_craters.shp'
+range_Diam = [2, 15]
+# area = 23207.89654750000
+area = 41286918825.50000000000/1000/1000
+folder = '/home/user/Bureau/Recherche/ELM/dating/'
+file = 'CRATER_Hercules2.shp'
 
 file_path = folder + file
 
@@ -61,7 +61,7 @@ for i in range(1, crat_layer.GetFeature(0).GetFieldCount()):
     field = crat_layer.GetFeature(0).GetDefnRef().GetFieldDefn(i).GetName()
 
 # Fill with approriate name
-diam_field = 'DIAM_KM'
+diam_field = 'diam_km'
 
 Diam_crat = np.zeros(featureCount)
 for index in range(0, featureCount):
@@ -109,6 +109,7 @@ def Dating_Poisson(Diam_crat, range_Diam, area, Coef_PF, Coef_chrono):
     # python can't handle numbers above exp(700) and below exp(-700)
     # so we remoove the lowest values
     max_proba_log = np.max(proba_log)
+
     proba_log = proba_log + 700 - max_proba_log
     proba_age_vec[np.where(proba_log > -700)] = (np.exp(proba_log[np.where(proba_log > -700)])
                                                  / (np.sum(np.exp(proba_log[np.where(proba_log > -700)])) * dt))
@@ -122,31 +123,20 @@ age_vec, proba_age_vec = Dating_Poisson(Diam_crat, range_Diam, area, Coef_PF, Co
 # Compute a cumulative proba
 proba_cumu = np.cumsum(proba_age_vec) / np.sum(proba_age_vec)
 
-# Get The median and the 1 sigma enveloppe
+# Get The median and the 1 sigma envelope
 i_med = np.min(np.where(proba_cumu > 0.5))
 
 i_sigma_inf = np.min(np.where(proba_cumu > 0.5 - 0.34))
 i_sigma_sup = np.min(np.where(proba_cumu > 0.5 + 0.34))
+
+i_min_0 = np.min(np.where(proba_cumu > 0.01))
+i_max_0 = np.min(np.where(proba_cumu > 0.99))
 
 crat_numb = np.size(Diam_crat[np.where((Diam_crat > range_Diam[0]) & (Diam_crat < range_Diam[1]))])
 
 print('Median model age is ' + str(age_vec[i_med]) + ' Gy')
 print('From ' + str(crat_numb) + ' craters')
 print('On ' + str(area) + ' km2')
-
-#########################################################################
-# Now make a figure of the probability density
-Prob_dens_fig = plt.figure()
-Prob_dens_sub = Prob_dens_fig.add_subplot(111)
-
-Prob_dens_sub.plot(age_vec, proba_age_vec, color='#e07109')
-Prob_dens_sub.fill_between(age_vec[i_sigma_inf:i_sigma_sup], proba_age_vec[i_sigma_inf:i_sigma_sup], alpha=0.2,
-                           color='#e07109')
-Prob_dens_sub.plot([age_vec[i_med], age_vec[i_med]], [0, proba_age_vec[i_med]], color='#e07109')
-
-Prob_dens_sub.tick_params(direction='in', top=True, which='both', labelsize=13)
-Prob_dens_sub.set_ylabel(r'Probability density', fontsize=14)
-Prob_dens_sub.set_xlabel(r'Age (Gy)', fontsize=14)
 
 
 #########################################################################
@@ -186,16 +176,71 @@ for i_Diam in range(0, N_Diam + 1):
 
 Best_isochron = -(Best_isochron_cumu[1:] - Best_isochron_cumu[:-1]) / (Diam_bin[1:] - Diam_bin[:-1])
 
-# now let's do the figure
-CSFD_fig = plt.figure()
-CSFD_sub = CSFD_fig.add_subplot(111)
 
-CSFD_sub.plot(Diam_vec, Best_isochron, color='g')
-CSFD_sub.plot(Diam_vec, CSFD, color='b')
+########################################################################
+# Now make a figure of the probability density
+date_fig = plt.figure(figsize = (7,4))
+CSFD_axes = date_fig.add_axes([0.12, 0.12, 0.76, 0.76])
+Prob_axes = date_fig.add_axes([0.63, 0.70, 0.23, 0.16])
 
-CSFD_sub.set_xscale('log')
-CSFD_sub.set_yscale('log')
+# Let's start with the proba graph
 
-CSFD_sub.tick_params(direction='in', top=True, which='both', labelsize=13)
-CSFD_sub.set_ylabel(r'Crater density (km-3)', fontsize=14)
-CSFD_sub.set_xlabel(r'Diameter (km)', fontsize=14)
+Prob_axes.plot(age_vec, proba_age_vec, color='#e07109')
+Prob_axes.fill_between(age_vec[i_sigma_inf:i_sigma_sup], proba_age_vec[i_sigma_inf:i_sigma_sup], alpha=0.2,
+                           color='#e07109')
+Prob_axes.plot([age_vec[i_med], age_vec[i_med]], [0, proba_age_vec[i_med]], color='#e07109')
+
+Prob_axes.tick_params(direction='out', which='both', labelsize=8)
+
+Prob_axes.get_yaxis().set_visible(False)
+Prob_axes.spines['top'].set_visible(False)
+Prob_axes.spines['right'].set_visible(False)
+Prob_axes.spines['left'].set_visible(False)
+
+Prob_axes.set_xlabel(r'Age (Gy)', fontsize=10)
+Prob_axes.set_xlim([age_vec[i_min_0], age_vec[i_max_0]])
+Prob_axes.set_xticks([age_vec[i_sigma_inf], age_vec[i_sigma_sup]])
+
+Prob_axes.annotate(str(age_vec[i_med])+' Gy',
+    xy = (age_vec[i_sigma_inf], proba_age_vec[i_sigma_inf]*1.2),
+    xycoords='data',
+    horizontalalignment='right',
+    fontsize = 14,
+    color = 'k'
+)
+
+
+
+# now let's do the crater density
+CSFD_axes.plot(Diam_vec, Best_isochron, color='g')
+CSFD_axes.plot(Diam_vec, CSFD, color='b', linewidth = 1, linestyle = '--')
+
+i_diam_min = np.min(np.where(Diam_vec > range_Diam[0]))
+i_diam_max = np.max(np.where(Diam_vec < range_Diam[1]))
+
+CSFD_axes.plot(Diam_vec[i_diam_min:i_diam_max], CSFD[i_diam_min:i_diam_max], color='b', linewidth = 3)
+
+
+CSFD_axes.set_xscale('log')
+CSFD_axes.set_yscale('log')
+
+CSFD_axes.tick_params(direction='in', top=True, which='both', labelsize=13)
+CSFD_axes.set_ylabel(r'Crater density (km$^{-3}$)', fontsize=14)
+CSFD_axes.set_xlabel(r'Diameter (km)', fontsize=14)
+
+inRangeCrat = Diam_crat[np.where((range_Diam[0] < Diam_crat) & (Diam_crat < range_Diam[1]))]
+craterNumber = np.size(inRangeCrat)
+
+CSFD_axes.plot(inRangeCrat, np.full(craterNumber, np.nanmin(CSFD)), 'ko', markersize = 1, alpha = 0.5)
+
+CSFD_axes.annotate(
+    str(craterNumber) +' craters\non ' + str(floor(area)) + r' km$^2$',
+    xy = (Diam_vec[i_diam_min +10], np.nanmin(CSFD)*10),
+    xycoords='data',
+    horizontalalignment='left',
+    fontsize = 12,
+    color = 'k'
+)
+
+
+date_fig.savefig(folder + 'datation.png', dpi=300)
