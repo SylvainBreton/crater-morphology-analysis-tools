@@ -24,7 +24,7 @@ range_Diam = [2, 15]
 # area = 23207.89654750000
 area = 41286918825.50000000000/1000/1000
 folder = '/home/user/Bureau/Recherche/ELM/dating/'
-file = 'CRATER_Hercules2.shp'
+file = 'CRATER_Hercules.shp'
 
 file_path = folder + file
 

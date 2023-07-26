@@ -23,7 +23,7 @@ from osgeo import ogr
 range_Diam = [0.6, 15]
 area = 41286918825.50000000000
 folder = '/home/user/Bureau/Recherche/ELM/dating/'
-file = 'CRATER_Hercules2.shp'
+file = 'CRATER_Hercules.shp'
 
 file_path = folder + file
 
